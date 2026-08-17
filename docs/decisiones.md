@@ -226,3 +226,41 @@ me cuesta.
   (3.3.4 y 2.12.18), así que el ajuste toca solo dos piezas.
 - **Cuesta**: se renuncia a lo último publicado. A cambio, lo que funciona en
   local es lo que se va a ejecutar en AWS, sin sorpresas de parche.
+
+## D19 — EMR Serverless sin VPC, y por tanto sin NAT Gateway
+
+- **Decidí**: no declarar `network_configuration` en la aplicación de EMR
+  Serverless. Sin VPC, sin subredes, sin NAT y sin endpoints.
+- **Alternativas**: VPC con NAT Gateway (~32 €/mes más tráfico); VPC con
+  endpoints para S3, Glue y Kinesis (tres recursos más, dos de ellos por hora).
+- **Por qué**: una aplicación de EMR Serverless solo necesita VPC si accede a
+  recursos que viven dentro de una VPC —una base de datos RDS, un ElastiCache—.
+  Todo lo que consume este job (S3, Glue, Kinesis) son servicios de AWS
+  alcanzables por la red gestionada del propio servicio. La factura de red
+  queda en cero.
+- **Cuesta**: si algún día el pipeline tuviera que leer de una base de datos
+  privada, habría que añadir VPC y entonces sí decidir entre NAT y endpoints.
+
+## D20 — Kinesis aprovisionado con un shard, no bajo demanda
+
+- **Decidí**: `PROVISIONED` con un shard y retención de 24 horas.
+- **Alternativas**: `ON_DEMAND`, que escala solo.
+- **Por qué**: bajo demanda cobra una cuota base por hora bastante más alta y
+  compensa con tráfico irregular o grande. Aquí el caudal está medido y es
+  estable: 37,4 ev/s de media, pico de 114, unos 53 KB/s. Un shard admite
+  1 MB/s y 1.000 registros por segundo, veinte veces lo necesario.
+- **Cuesta**: si el caudal se disparara habría que añadir shards a mano. Con
+  esta fuente no va a pasar.
+
+## D21 — El perfil de AWS es obligatorio y sin valor por defecto
+
+- **Decidí**: `var.perfil` sin `default`, con validación de que no esté vacío, y
+  `profile = var.perfil` en el proveedor.
+- **Alternativas**: dejar que el proveedor use la cadena de credenciales
+  habitual, que acaba en el perfil `default`.
+- **Por qué**: en este equipo había un `~/.aws/credentials` de noviembre de
+  2025, de una certificación anterior, que nadie recordaba haber puesto.
+  Cualquier comando de Terraform habría ido a esa cuenta sin avisar. Obligar a
+  nombrar el perfil convierte un accidente silencioso en un error explícito.
+- **Cuesta**: hay que pasar `-var perfil=...` o tener el `tfvars`. Es
+  exactamente la fricción que se busca.

@@ -1,0 +1,35 @@
+# Copiar a terraform.tfvars y rellenar. El fichero real no se versiona.
+
+# Obligatorio y sin valor por defecto a proposito: asi ningun comando puede
+# acabar apuntando a la cuenta que tenga configurada el CLI por casualidad.
+# Se crea con:  aws configure --profile wikipipe
+perfil = "wikipipe"
+
+# Estocolmo. Entre las regiones mas baratas y con todos los servicios que
+# necesita el proyecto.
+region = "eu-north-1"
+
+# Prefijo de todos los nombres. Sirve para encontrarlos y para borrarlos sin
+# dudar de si algo es tuyo o no.
+prefijo = "wikipipe"
+
+# --- Frenos de coste. Bajarlos es seguro; subirlos, no ---
+
+# Un shard admite 1 MB/s. La fuente real produce 53 KB/s medidos.
+shards = 1
+
+# Minimo de Kinesis y sin coste de retencion extendida.
+retencion_horas = 24
+
+# Tope de recursos de EMR Serverless. El peor caso queda acotado aqui.
+capacidad_maxima_vcpu       = 8
+capacidad_maxima_memoria_gb = 32
+
+# Minutos de inactividad tras los que la aplicacion se apaga sola.
+# OJO: esto NO para un job de streaming en marcha, porque un job vivo no esta
+# ocioso. Parar el job es un paso manual.
+minutos_parada_automatica = 15
+
+# Los puntos de control ocupan mas que los datos: medido en local, 180 MB
+# frente a 13,7 MB en ocho minutos.
+dias_expiracion_checkpoints = 7
