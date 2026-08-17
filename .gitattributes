@@ -1,0 +1,11 @@
+# El desarrollo es en Windows pero todo se ejecuta dentro de contenedores
+# Linux. Sin esto, git convierte a CRLF al sacar los ficheros y los scripts
+# fallan dentro del contenedor con "bad interpreter: /bin/sh^M".
+* text=auto eol=lf
+
+# Binarios: que git no los toque.
+*.jar binary
+*.parquet binary
+*.png binary
+*.jpg binary
+*.mp4 binary
