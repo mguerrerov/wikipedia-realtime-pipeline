@@ -65,3 +65,19 @@ variable "minutos_parada_automatica" {
   type        = number
   default     = 15
 }
+
+variable "correo_avisos" {
+  description = "Correo al que llegan los avisos de gasto. Obligatorio: sin destinatario, el presupuesto no sirve de nada."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@ ]+@[^@ ]+[.][^@ ]+$", var.correo_avisos))
+    error_message = "Hay que indicar un correo valido para los avisos de gasto."
+  }
+}
+
+variable "tope_gasto_usd" {
+  description = "Tope mensual de gasto en dolares que dispara los avisos. El presupuesto del proyecto entero es de menos de 15 EUR."
+  type        = string
+  default     = "10"
+}

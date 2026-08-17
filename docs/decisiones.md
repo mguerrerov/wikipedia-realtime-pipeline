@@ -264,3 +264,18 @@ me cuesta.
   nombrar el perfil convierte un accidente silencioso en un error explícito.
 - **Cuesta**: hay que pasar `-var perfil=...` o tener el `tfvars`. Es
   exactamente la fricción que se busca.
+
+## D22 — Presupuesto con avisos, porque no hay tope duro
+
+- **Decidí**: crear un presupuesto de AWS con tres avisos por correo (50 % y
+  90 % del gasto real, y 100 % de la proyección del mes).
+- **Alternativas**: confiar en el tope del plan gratuito; no poner nada y
+  revisar el panel a mano.
+- **Por qué**: el plan gratuito quedó descartado —la cuenta ya había consumido
+  esa oferta—, así que se opera en plan de pago y **no existe ningún tope
+  duro**. El aviso de proyección es el que de verdad importa: detecta un
+  recurso olvidado a los pocos días, no a final de mes. El riesgo del proyecto
+  no es la sesión de validación (~1 $) sino el shard de Kinesis olvidado, que
+  cuesta unos 11 $ al mes se use o no.
+- **Cuesta**: nada, los dos primeros presupuestos de una cuenta son gratis. Y
+  hay que asumir su límite: **avisa, no impide**. No sustituye al destroy.

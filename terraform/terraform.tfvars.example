@@ -33,3 +33,11 @@ minutos_parada_automatica = 15
 # Los puntos de control ocupan mas que los datos: medido en local, 180 MB
 # frente a 13,7 MB en ocho minutos.
 dias_expiracion_checkpoints = 7
+
+# --- Avisos de gasto ---
+# Obligatorio: sin destinatario el presupuesto no sirve de nada.
+correo_avisos = "marcosguerrerov27@gmail.com"
+
+# Tope mensual en dolares que dispara los avisos. El aviso de proyeccion salta
+# antes de llegar, que es lo que detecta un recurso olvidado a los pocos dias.
+tope_gasto_usd = "10"
