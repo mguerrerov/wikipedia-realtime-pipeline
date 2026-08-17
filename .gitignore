@@ -1,0 +1,25 @@
+# Capturas crudas de la fase 0: se regeneran con scripts/captura_sse.py
+data/
+
+# Bitacora de trabajo interna, no forma parte del proyecto publicado
+docs/sesiones/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Checkpoints y almacenamiento local del pipeline
+checkpoints/
+warehouse/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Sistema
+.DS_Store
+Thumbs.db
