@@ -82,5 +82,85 @@ services:
     # con eventos dentro.
     stop_grace_period: 30s
 
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"     # consola web de MinIO
+    volumes:
+      - datos-minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # Igual que el topico: el bucket se crea aqui para que levantar el entorno en
+  # otra maquina no dependa de acordarse de un paso manual.
+  crear-bucket:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: crear-bucket
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-minioadmin} ${AWS_SECRET_ACCESS_KEY:-minioadmin} && mc mb --ignore-existing local/${BUCKET:-almacen} && mc ls local"
+    restart: "no"
+
+  # El job de Bronze. No se arranca solo: se lanza a mano con
+  #   docker compose run --rm bronce
+  # Un job de streaming que arranca con el entorno es un job que se queda
+  # corriendo sin que nadie se de cuenta.
+  bronce:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    image: pipeline-spark:3.5.9-java17
+    profiles: ["jobs"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      crear-bucket:
+        condition: service_completed_successfully
+    environment: &entorno-spark
+      FUENTE_EVENTOS: kafka
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPICO: ${KAFKA_TOPICO:-wikimedia.cambios}
+      CATALOGO: hadoop
+      S3_ENDPOINT: http://minio:9000
+      ALMACEN: s3a://${BUCKET:-almacen}/warehouse
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[2]
+      --driver-memory 2g
+      /app/src/jobs/bronce.py --duracion ${DURACION_JOB:-0}
+
+  # Comprueba que Bronze no perdio ni duplico. Se lanza a mano:
+  #   docker compose run --rm verifica
+  verifica:
+    image: pipeline-spark:3.5.9-java17
+    profiles: ["jobs"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment: *entorno-spark
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[2]
+      --driver-memory 2g
+      /app/src/jobs/verifica_bronce.py
+
 volumes:
   datos-redpanda:
+  datos-minio:

@@ -6,8 +6,6 @@ import logging
 import os
 from typing import Dict, Tuple
 
-from confluent_kafka import Producer
-
 from .base import LecturaSpark, Publicador
 
 log = logging.getLogger(__name__)
@@ -18,6 +16,11 @@ PAQUETE_SPARK_KAFKA = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.9"
 
 class PublicadorKafka(Publicador):
     def __init__(self, brokers: str, topico: str):
+        # El import va aqui y no arriba a proposito: la imagen de Spark no
+        # lleva confluent_kafka, porque Spark lee de la cola pero no publica.
+        # Con el import arriba, pedir solo la lectura reventaria alli.
+        from confluent_kafka import Producer
+
         self.topico = topico
         self._sin_entregar = 0
         self._productor = Producer(
@@ -95,7 +98,16 @@ class LecturaKafka(LecturaSpark):
         return PAQUETE_SPARK_KAFKA
 
 
-def desde_entorno() -> Tuple[PublicadorKafka, LecturaKafka]:
-    brokers = os.environ.get("KAFKA_BROKERS", "localhost:19092")
-    topico = os.environ.get("KAFKA_TOPICO", "wikimedia.cambios")
-    return PublicadorKafka(brokers, topico), LecturaKafka(brokers, topico)
+def _destino() -> Tuple[str, str]:
+    return (
+        os.environ.get("KAFKA_BROKERS", "localhost:19092"),
+        os.environ.get("KAFKA_TOPICO", "wikimedia.cambios"),
+    )
+
+
+def publicador_desde_entorno() -> PublicadorKafka:
+    return PublicadorKafka(*_destino())
+
+
+def lectura_desde_entorno() -> LecturaKafka:
+    return LecturaKafka(*_destino())

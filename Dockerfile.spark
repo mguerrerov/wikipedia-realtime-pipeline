@@ -1,0 +1,50 @@
+# Spark con las JAR necesarias ya dentro de la imagen.
+#
+# La alternativa es `--packages`, que las resuelve en cada arranque con Ivy.
+# Se descarta a proposito: depende de la red en cada ejecucion, mete varios
+# segundos en cada arranque y, sobre todo, resuelve dependencias transitivas
+# por su cuenta, que es justo la puerta por la que entran las combinaciones de
+# versiones que rompen este stack. Aqui cada JAR esta escrita y fijada.
+#
+# Versiones y su procedencia: docs/versiones.md
+
+# Java 17 y no la etiqueta corta `3.5.9`, que trae Java 11: Iceberg 1.11.0 esta
+# compilado para Java 17 (class file 61) y con Java 11 el job muere al crear la
+# sesion con UnsupportedClassVersionError. Mismo Spark y misma Scala.
+FROM apache/spark:3.5.9-scala2.12-java17-python3-r-ubuntu
+
+USER root
+
+ARG MAVEN=https://repo1.maven.org/maven2
+ARG SPARK=3.5.9
+ARG ICEBERG=1.11.0
+ARG HADOOP=3.3.4
+ARG AWS_SDK=1.12.262
+ARG KAFKA_CLIENTS=3.4.1
+ARG COMMONS_POOL=2.11.1
+
+WORKDIR /opt/spark/jars
+
+# Conector de Kafka mas sus dos dependencias transitivas. Sin
+# kafka-clients y commons-pool2 el job arranca y falla al leer, que es la
+# forma mas cara de descubrir que falta una JAR.
+RUN set -eux; \
+    curl -fsSLO ${MAVEN}/org/apache/spark/spark-sql-kafka-0-10_2.12/${SPARK}/spark-sql-kafka-0-10_2.12-${SPARK}.jar; \
+    curl -fsSLO ${MAVEN}/org/apache/spark/spark-token-provider-kafka-0-10_2.12/${SPARK}/spark-token-provider-kafka-0-10_2.12-${SPARK}.jar; \
+    curl -fsSLO ${MAVEN}/org/apache/kafka/kafka-clients/${KAFKA_CLIENTS}/kafka-clients-${KAFKA_CLIENTS}.jar; \
+    curl -fsSLO ${MAVEN}/org/apache/commons/commons-pool2/${COMMONS_POOL}/commons-pool2-${COMMONS_POOL}.jar
+
+# Iceberg, y el conector S3A con la version del SDK que le corresponde a este
+# Hadoop exacto. Mezclarlas da NoSuchMethodError al escribir, no al arrancar.
+RUN set -eux; \
+    curl -fsSLO ${MAVEN}/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/${ICEBERG}/iceberg-spark-runtime-3.5_2.12-${ICEBERG}.jar; \
+    curl -fsSLO ${MAVEN}/org/apache/hadoop/hadoop-aws/${HADOOP}/hadoop-aws-${HADOOP}.jar; \
+    curl -fsSLO ${MAVEN}/com/amazonaws/aws-java-sdk-bundle/${AWS_SDK}/aws-java-sdk-bundle-${AWS_SDK}.jar
+
+WORKDIR /app
+COPY src/ ./src/
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+USER spark

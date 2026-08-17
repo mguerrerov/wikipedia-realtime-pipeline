@@ -15,11 +15,36 @@ Hadoop, el conector S3A y las JAR de Iceberg. La cadena se fija de arriba abajo:
 
 | Pieza | Versión | De dónde sale |
 |---|---|---|
-| Spark | **3.5.9** | Imagen `apache/spark:3.5.9`, la única 3.5.x publicada al día de hoy |
+| Spark | **3.5.9** | Imagen `apache/spark:3.5.9-scala2.12-java17-python3-r-ubuntu` |
+| **Java** | **17** | Impuesto por Iceberg. Ver abajo: es el eje que casi se me escapa |
 | Scala | **2.12.18** | `<scala.version>` del POM `spark-parent_2.12:3.5.9` |
 | Hadoop | **3.3.4** | `<hadoop.version>` del mismo POM |
 | Iceberg | **1.11.0** | Última con artefacto `iceberg-spark-runtime-3.5_2.12` |
 | AWS SDK v1 | **1.12.262** | `<aws-java-sdk.version>` del POM `hadoop-project:3.3.4` |
+
+### El eje Java, que no basta con que la JAR exista
+
+La primera versión de esta matriz daba por buena Iceberg 1.11.0 porque el
+artefacto existe para Spark 3.5 y Scala 2.12. Existe, y aun así el job murió al
+crear la sesión:
+
+```
+java.lang.UnsupportedClassVersionError: org/apache/iceberg/spark/ExtendedParser
+has been compiled by a more recent version of the Java Runtime
+(class file version 61.0), this version only recognizes up to 55.0
+```
+
+Class file 61 es Java 17; la 55 es Java 11. La etiqueta corta `apache/spark:3.5.9`
+trae Java 11, así que Iceberg 1.11.0 no puede ni cargarse.
+
+**Que la JAR exista para tu Spark y tu Scala no significa que funcione con tu
+Java.** Son tres ejes, no dos. La solución fue la etiqueta larga de la misma
+versión de Spark, que solo cambia el runtime — Spark 3.5 soporta Java 17
+oficialmente — y además alinea con EMR 7.x, que ya va sobre Java 17.
+
+La alternativa era bajar Iceberg a una versión compilada para Java 11, y se
+descartó: ata el proyecto a una Iceberg más antigua para arreglar un problema
+que no está en Iceberg.
 
 Los tres primeros no son elección: vienen impuestos por la imagen de Spark.
 La única decisión real es la versión de Iceberg, y está acotada por la

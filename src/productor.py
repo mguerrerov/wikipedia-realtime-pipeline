@@ -54,8 +54,8 @@ def main() -> int:
         format="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
     )
 
-    publicador, lectura = fuente_eventos.crear()
-    formato, _ = lectura.formato_y_opciones()
+    publicador = fuente_eventos.crear_publicador()
+    formato = fuente_eventos.crear_lectura().formato_y_opciones()[0]
     log.info(
         "Publicando en %s (implementación: %s)",
         os.environ.get(fuente_eventos.VARIABLE, fuente_eventos.POR_DEFECTO),

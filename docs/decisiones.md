@@ -108,3 +108,41 @@ me cuesta.
   sabe dónde está.
 - **Cuesta**: una clase más y algo de indirección en la fase 2, antes de que se
   vea para qué sirve.
+
+## D10 — Java 17, no Java 11
+
+- **Decidí**: imagen `apache/spark:3.5.9-scala2.12-java17-python3-r-ubuntu`.
+- **Alternativas**: quedarse en Java 11 y bajar Iceberg a una versión compilada
+  para ese runtime.
+- **Por qué**: Iceberg 1.11.0 está compilado con class file 61 (Java 17) y la
+  etiqueta corta de Spark trae Java 11 (class file 55): el job muere al crear
+  la sesión con `UnsupportedClassVersionError`. Cambiar de runtime es el ajuste
+  más pequeño —mismo Spark, misma Scala— y alinea con EMR 7.x, que ya va sobre
+  Java 17.
+- **Cuesta**: la imagen es más grande. Nada más: Spark 3.5 soporta Java 17.
+
+## D11 — Publicación y lectura se piden por separado
+
+- **Decidí**: `crear_publicador()` y `crear_lectura()` en vez de un único
+  `crear()` que devuelva el par, y el import del cliente dentro del constructor.
+- **Alternativas**: instalar `confluent-kafka` y `boto3` también en la imagen de
+  Spark.
+- **Por qué**: el job de Spark solo lee, pero pedir el par construía también el
+  publicador y con él `confluent_kafka`, que la imagen de Spark no lleva —
+  `ModuleNotFoundError` al arrancar. Las dos mitades viven en imágenes
+  distintas, así que acoplarlas obliga a cada una a cargar la dependencia de la
+  otra. Corrige un defecto de D9.
+- **Cuesta**: dos funciones donde había una, e imports dentro de funciones, que
+  no es lo idiomático pero aquí está justificado y comentado.
+
+## D12 — Bronze guarda el evento como texto, sin parsear
+
+- **Decidí**: columna `valor STRING` con el JSON tal cual, más los metadatos del
+  sobre (`particion`, `desplazamiento`, `ts_cola`).
+- **Alternativas**: parsear el JSON en Bronze con el esquema de la fase 0.
+- **Por qué**: si Wikimedia cambia el esquema, Bronze sigue ingiriendo y el
+  problema se resuelve en Silver con los datos crudos aún disponibles. Además
+  `(particion, desplazamiento)` permite demostrar exactitud: duplicados y huecos
+  se calculan de forma exacta, no aproximada.
+- **Cuesta**: Silver tiene que parsear, y la tabla ocupa más que si estuviera
+  tipada. Medido: 6,4 MB para 25.911 eventos.

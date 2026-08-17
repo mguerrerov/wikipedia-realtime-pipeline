@@ -21,9 +21,6 @@ import os
 import time
 from typing import Dict, List, Tuple
 
-import boto3
-from botocore.config import Config
-
 from .base import LecturaSpark, Publicador
 
 log = logging.getLogger(__name__)
@@ -34,6 +31,11 @@ MAX_BYTES_POR_LLAMADA = 4_500_000  # el limite real es 5 MB; dejamos margen
 
 class PublicadorKinesis(Publicador):
     def __init__(self, stream: str, region: str, lote: int = 250):
+        # Igual que en la implementacion de Kafka: el import va dentro para que
+        # pedir solo la lectura no obligue a tener boto3 instalado.
+        import boto3
+        from botocore.config import Config
+
         self.stream = stream
         self.lote = min(lote, MAX_REGISTROS_POR_LLAMADA)
         self._pendientes: List[dict] = []
@@ -119,7 +121,16 @@ class LecturaKinesis(LecturaSpark):
         return ""
 
 
-def desde_entorno() -> Tuple[PublicadorKinesis, LecturaKinesis]:
-    stream = os.environ.get("KINESIS_STREAM", "wikimedia-cambios")
-    region = os.environ.get("AWS_REGION", "eu-west-1")
-    return PublicadorKinesis(stream, region), LecturaKinesis(stream, region)
+def _destino() -> Tuple[str, str]:
+    return (
+        os.environ.get("KINESIS_STREAM", "wikimedia-cambios"),
+        os.environ.get("AWS_REGION", "eu-west-1"),
+    )
+
+
+def publicador_desde_entorno() -> PublicadorKinesis:
+    return PublicadorKinesis(*_destino())
+
+
+def lectura_desde_entorno() -> LecturaKinesis:
+    return LecturaKinesis(*_destino())
