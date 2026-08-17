@@ -70,3 +70,41 @@ me cuesta.
   una dependencia, y así la fase 0 queda reproducible sin instalar nada.
 - **Cuesta**: ~120 líneas de parseo y estadística escritas a mano, incluido el
   cálculo de percentiles.
+
+## D7 — La clave de particion es `wiki|title`
+
+- **Decidí**: publicar cada evento con clave `"<wiki>|<title>"`.
+- **Alternativas**: sin clave (reparto rotatorio); clave `wiki`; clave `meta.id`.
+- **Por qué**: reparte bien —hay decenas de miles de títulos distintos por
+  minuto, y en la prueba 200 eventos cayeron 74/63/63 en tres particiones— y
+  garantiza que todos los cambios de una misma página conservan su orden, que
+  es lo que necesita la pregunta P3. Con clave `wiki` el 42 % del tráfico
+  caería en una sola partición, porque Commons domina.
+- **Cuesta**: el reparto depende del tráfico real; si un solo título se volviera
+  muy activo, su partición se calentaría. Con este volumen no es un problema.
+
+## D8 — El productor va en un contenedor, no en el equipo anfitrión
+
+- **Decidí**: el productor se construye desde `Dockerfile` y se levanta con el
+  resto del Compose.
+- **Alternativas**: ejecutarlo a mano en el anfitrión contra `localhost:19092`.
+- **Por qué**: el criterio de fin de fase es que `docker compose up` levante
+  todo y los mensajes lleguen al topic. Con el productor fuera, ese criterio
+  dependería de un paso manual y de que el Python del anfitrión tuviera las
+  dependencias.
+- **Cuesta**: reconstruir la imagen en cada cambio del productor. Se mitiga
+  copiando `requirements.txt` antes que el código, para reaprovechar la capa.
+
+## D9 — La interfaz expone publicación y lectura, no solo publicación
+
+- **Decidí**: `fuente_eventos` devuelve un par: un `Publicador` (lo usa el
+  productor, en Python) y una `LecturaSpark` que entrega formato y opciones de
+  `readStream`.
+- **Alternativas**: abstraer solo la publicación y dejar que el job de Spark
+  configure la lectura por su cuenta.
+- **Por qué**: si el job configura la lectura, acaba conteniendo la diferencia
+  entre Kafka y Kinesis —que es exactamente el `if entorno == "aws"` que este
+  diseño existe para impedir. Con esto, el job pide formato y opciones y no
+  sabe dónde está.
+- **Cuesta**: una clase más y algo de indirección en la fase 2, antes de que se
+  vea para qué sirve.

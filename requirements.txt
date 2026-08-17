@@ -1,0 +1,3 @@
+# Versiones exactas. Prohibido rango abierto: ver docs/versiones.md.
+confluent-kafka==2.15.0
+boto3==1.43.72

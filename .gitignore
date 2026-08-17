@@ -4,6 +4,9 @@ data/
 # Bitacora de trabajo interna, no forma parte del proyecto publicado
 docs/sesiones/
 
+# Configuracion local: se parte de .env.example
+.env
+
 # Python
 __pycache__/
 *.pyc

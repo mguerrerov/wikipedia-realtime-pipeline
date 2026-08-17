@@ -1,0 +1,86 @@
+# Entorno local completo de la fase 1: cola, topico, consola y productor.
+# Todas las versiones fijadas. Ver docs/versiones.md.
+
+services:
+
+  redpanda:
+    image: redpandadata/redpanda:v25.3.16
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      # Un nodo, un core: es un portatil, no un cluster.
+      - --smp=1
+      - --memory=1G
+      - --overprovisioned
+      - --node-id=0
+      - --mode=dev-container
+      # Dos puertos a proposito. Los contenedores entran por 9092 usando el
+      # nombre del servicio; el equipo anfitrion entra por 19092 con localhost.
+      # Sin esa distincion, el cliente de fuera recibe una direccion que no
+      # sabe resolver, y falla despues de conectar, que es lo que despista.
+      - --kafka-addr=interna://0.0.0.0:9092,externa://0.0.0.0:19092
+      - --advertise-kafka-addr=interna://redpanda:9092,externa://localhost:19092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+    ports:
+      - "19092:19092"
+      - "9644:9644"     # metricas y API de administracion
+    volumes:
+      - datos-redpanda:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # Servicio de un solo uso: crea el topico y termina. Tenerlo aqui evita el
+  # paso manual que siempre se olvida al levantar el entorno en otra maquina.
+  crear-topico:
+    image: redpandadata/redpanda:v25.3.16
+    container_name: crear-topico
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    # Un solo argumento en una linea: con el bloque plegado de YAML (>) las
+    # lineas mas indentadas conservan el salto de linea y sh las ejecuta como
+    # comandos sueltos.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "rpk topic create ${KAFKA_TOPICO:-wikimedia.cambios} --brokers redpanda:9092 --partitions 3 --replicas 1 || echo 'el topico ya existe, nada que hacer'"
+    restart: "no"
+
+  consola:
+    image: redpandadata/console:v3.10.0
+    container_name: consola-redpanda
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    restart: unless-stopped
+
+  productor:
+    build: .
+    container_name: productor
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      crear-topico:
+        condition: service_completed_successfully
+    environment:
+      # Unica variable que decide el entorno en todo el proyecto.
+      FUENTE_EVENTOS: kafka
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPICO: ${KAFKA_TOPICO:-wikimedia.cambios}
+      LIMITE_EVENTOS: ${LIMITE_EVENTOS:-0}
+    restart: unless-stopped
+    # Margen para que el productor vacie su buffer al parar, en vez de morir
+    # con eventos dentro.
+    stop_grace_period: 30s
+
+volumes:
+  datos-redpanda:
