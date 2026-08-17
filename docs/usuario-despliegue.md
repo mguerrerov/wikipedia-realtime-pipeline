@@ -6,16 +6,22 @@ en la cuenta, incluida cerrarla, y ninguna barrera del proyecto la limita.
 
 ## Pasos en la consola de AWS
 
-1. **IAM → Usuarios → Crear usuario**. Nombre: `terraform-wikipipe`.
-   No marques acceso a la consola: este usuario solo usa claves.
+Primero la política y después el usuario: el asistente de creación de usuario
+solo deja adjuntar políticas que ya existan, no escribirlas.
 
-2. **Adjuntar políticas → Crear política en línea**, pestaña JSON, y pega el
-   contenido de `politica-despliegue.json` (en esta misma carpeta).
-   Nómbrala `wikipipe-despliegue`.
+1. **IAM → Políticas → Crear política**, pestaña **JSON**. Pega el contenido de
+   `politica-despliegue.json` (en esta misma carpeta) y nómbrala
+   `wikipipe-despliegue`.
+
+2. **IAM → Usuarios → Crear usuario**. Nombre: `terraform-wikipipe`.
+   **No** marques el acceso al portal de administración: este usuario solo usa
+   claves. En permisos, *Adjuntar políticas directamente* → `wikipipe-despliegue`.
 
 3. **Usuario → Credenciales de seguridad → Crear clave de acceso**.
-   Caso de uso: *Interfaz de línea de comandos (CLI)*.
-   Guarda las dos cadenas; la secreta solo se ve una vez.
+   Caso de uso: *Interfaz de línea de comandos (CLI)*; hay que marcar la
+   casilla de confirmación del aviso.
+   **La clave secreta solo se muestra una vez**: descarga el `.csv` antes de
+   cerrar. Si se pierde, se borra esa clave y se crea otra.
 
 4. En una terminal normal, **no** dentro del asistente:
    ```
