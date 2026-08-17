@@ -122,7 +122,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.spark
-    image: pipeline-spark:3.5.9-java17
+    image: pipeline-spark:3.5.6-java17
     profiles: ["jobs"]
     depends_on:
       redpanda:
@@ -147,7 +147,7 @@ services:
       /app/src/jobs/bronce.py --duracion ${DURACION_JOB:-0}
 
   plata:
-    image: pipeline-spark:3.5.9-java17
+    image: pipeline-spark:3.5.6-java17
     profiles: ["jobs"]
     depends_on:
       minio:
@@ -160,7 +160,7 @@ services:
       /app/src/jobs/plata.py --duracion ${DURACION_JOB:-0}
 
   oro:
-    image: pipeline-spark:3.5.9-java17
+    image: pipeline-spark:3.5.6-java17
     profiles: ["jobs"]
     depends_on:
       minio:
@@ -189,7 +189,7 @@ services:
     command: ["python", "-m", "src.generador"]
 
   consultas:
-    image: pipeline-spark:3.5.9-java17
+    image: pipeline-spark:3.5.6-java17
     profiles: ["jobs"]
     depends_on:
       minio:
@@ -202,7 +202,7 @@ services:
       /app/src/jobs/consultas.py
 
   tardios:
-    image: pipeline-spark:3.5.9-java17
+    image: pipeline-spark:3.5.6-java17
     profiles: ["jobs"]
     depends_on:
       minio:
@@ -217,7 +217,7 @@ services:
   # Comprueba que Bronze no perdio ni duplico. Se lanza a mano:
   #   docker compose run --rm verifica
   verifica:
-    image: pipeline-spark:3.5.9-java17
+    image: pipeline-spark:3.5.6-java17
     profiles: ["jobs"]
     depends_on:
       minio:

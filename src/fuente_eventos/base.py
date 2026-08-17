@@ -41,16 +41,47 @@ class Publicador(abc.ABC):
 
 
 class LecturaSpark(abc.ABC):
-    """Devuelve como lee Spark de esta cola.
+    """Devuelve como lee Spark de esta cola, y normaliza lo que sale.
 
-    Existe para que los jobs de la fase 2 en adelante no tengan que saber si
-    detras hay Kafka o Kinesis: piden formato y opciones, y leen.
+    Dar solo formato y opciones NO basta, y esto se descubrio verificando la
+    documentacion de EMR antes de escribir el Terraform. Cada fuente devuelve un
+    DataFrame con columnas distintas:
+
+        Kafka    key, value, topic, partition, offset, timestamp
+        Kinesis  data, streamName, partitionKey, sequenceNumber,
+                 approximateArrivalTimestamp
+
+    Un job que haga `F.col("offset")` funciona en local y no arranca en AWS.
+    No hay ningun `if entorno == "aws"`, pero la diferencia de entorno se ha
+    filtrado igual, columna a columna. Por eso `normalizar` es parte de la
+    interfaz: traduce cada sobre al esquema comun y el job no conoce ninguno.
     """
+
+    #: Esquema comun al que traducen todas las implementaciones.
+    COLUMNAS = ("clave", "valor", "origen", "particion", "desplazamiento", "ts_cola")
 
     @abc.abstractmethod
     def formato_y_opciones(self) -> Tuple[str, Dict[str, str]]:
         """Devuelve (formato, opciones) para `spark.readStream.format(...)`."""
 
     @abc.abstractmethod
+    def normalizar(self, df):
+        """Traduce el sobre propio de la fuente al esquema comun COLUMNAS.
+
+        `desplazamiento` es texto y no numero a proposito: en Kafka es un entero
+        creciente, pero en Kinesis es un numero de secuencia de 56 digitos que
+        no cabe en un BIGINT. Unificar por el lado ancho evita que el esquema
+        de la tabla dependa del entorno.
+        """
+
+    @abc.abstractmethod
     def paquetes_maven(self) -> str:
         """Coordenadas Maven del conector, para `spark.jars.packages`."""
+
+    @abc.abstractmethod
+    def desplazamiento_es_consecutivo(self) -> bool:
+        """Si los desplazamientos de una particion son enteros consecutivos.
+
+        Cierto en Kafka, falso en Kinesis. Lo consulta la verificacion de
+        Bronze: el conteo de huecos por resta solo tiene sentido si lo son.
+        """

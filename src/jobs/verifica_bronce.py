@@ -21,7 +21,7 @@ from pyspark.sql import SparkSession
 
 sys.path.insert(0, "/app")
 
-from src import almacenamiento  # noqa: E402
+from src import almacenamiento, fuente_eventos  # noqa: E402
 
 TABLA = "%s.bronce.cambios" % almacenamiento.NOMBRE_CATALOGO
 
@@ -32,6 +32,11 @@ def main() -> int:
         constructor = constructor.config(clave, valor)
     spark = constructor.getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
+
+    # El conteo de huecos por resta solo tiene sentido si los desplazamientos
+    # son enteros consecutivos. Lo son en Kafka y no en Kinesis, y quien lo
+    # sabe es la implementacion de la fuente, no este script.
+    consecutivos = fuente_eventos.crear_lectura().desplazamiento_es_consecutivo()
 
     total, distintos = spark.sql(
         """
@@ -50,16 +55,23 @@ def main() -> int:
 
     print("")
     print("== CONTINUIDAD POR PARTICION ==")
+    if not consecutivos:
+        print("  La fuente no garantiza desplazamientos consecutivos.")
+        print("  El conteo de huecos no aplica; solo vale el de duplicados.")
+        spark.stop()
+        return 0 if (total - distintos) == 0 else 1
+
     filas = spark.sql(
         """
         SELECT particion,
                COUNT(*)              AS filas,
-               MIN(desplazamiento)   AS primero,
-               MAX(desplazamiento)   AS ultimo,
-               (MAX(desplazamiento) - MIN(desplazamiento) + 1) - COUNT(*) AS huecos
+               MIN(CAST(desplazamiento AS BIGINT))   AS primero,
+               MAX(CAST(desplazamiento AS BIGINT))   AS ultimo,
+               (MAX(CAST(desplazamiento AS BIGINT))
+                - MIN(CAST(desplazamiento AS BIGINT)) + 1) - COUNT(*) AS huecos
         FROM %s
         GROUP BY particion
-        ORDER BY particion
+        ORDER BY CAST(particion AS INT)
         """
         % TABLA
     ).collect()
@@ -69,7 +81,7 @@ def main() -> int:
     for f in filas:
         huecos_total += f["huecos"]
         print(
-            "  %4d  %6d  %8d  %8d  %7d"
+            "  %4s  %6d  %8d  %8d  %7d"
             % (f["particion"], f["filas"], f["primero"], f["ultimo"], f["huecos"])
         )
     print("HUECOS TOTALES             : %d" % huecos_total)

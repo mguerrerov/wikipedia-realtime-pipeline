@@ -47,9 +47,9 @@ def crear_tabla(spark: SparkSession) -> None:
         CREATE TABLE IF NOT EXISTS %s (
             clave           STRING,
             valor           STRING,
-            topico          STRING,
-            particion       INT,
-            desplazamiento  BIGINT,
+            origen          STRING,
+            particion       STRING,
+            desplazamiento  STRING,
             ts_cola         TIMESTAMP,
             ingerido_en     TIMESTAMP
         )
@@ -95,16 +95,11 @@ def main() -> int:
 
     crudo = spark.readStream.format(formato).options(**opciones).load()
 
-    # Del sobre solo se toma lo que identifica el mensaje. El contenido va tal
-    # cual, sin parsear.
-    eventos = crudo.select(
-        F.col("key").cast("string").alias("clave"),
-        F.col("value").cast("string").alias("valor"),
-        F.col("topic").alias("topico"),
-        F.col("partition").alias("particion"),
-        F.col("offset").alias("desplazamiento"),
-        F.col("timestamp").alias("ts_cola"),
-        F.current_timestamp().alias("ingerido_en"),
+    # Aqui esta la clave de que este job sea identico en local y en AWS: el
+    # sobre lo traduce la implementacion de la fuente, no el job. Kafka y
+    # Kinesis devuelven columnas distintas; a partir de esta linea, no.
+    eventos = lectura.normalizar(crudo).withColumn(
+        "ingerido_en", F.current_timestamp()
     )
 
     consulta = (

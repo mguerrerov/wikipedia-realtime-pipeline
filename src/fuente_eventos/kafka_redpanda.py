@@ -11,7 +11,7 @@ from .base import LecturaSpark, Publicador
 log = logging.getLogger(__name__)
 
 # Version fijada en docs/versiones.md. Debe coincidir con la de Spark.
-PAQUETE_SPARK_KAFKA = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.9"
+PAQUETE_SPARK_KAFKA = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6"
 
 
 class PublicadorKafka(Publicador):
@@ -94,8 +94,24 @@ class LecturaKafka(LecturaSpark):
             "failOnDataLoss": "false",
         }
 
+    def normalizar(self, df):
+        """Sobre de Kafka -> esquema comun."""
+        from pyspark.sql import functions as F
+
+        return df.select(
+            F.col("key").cast("string").alias("clave"),
+            F.col("value").cast("string").alias("valor"),
+            F.col("topic").alias("origen"),
+            F.col("partition").cast("string").alias("particion"),
+            F.col("offset").cast("string").alias("desplazamiento"),
+            F.col("timestamp").alias("ts_cola"),
+        )
+
     def paquetes_maven(self) -> str:
         return PAQUETE_SPARK_KAFKA
+
+    def desplazamiento_es_consecutivo(self) -> bool:
+        return True
 
 
 def _destino() -> Tuple[str, str]:

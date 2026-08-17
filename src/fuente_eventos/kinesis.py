@@ -109,16 +109,44 @@ class LecturaKinesis(LecturaSpark):
         self.region = region
 
     def formato_y_opciones(self) -> Tuple[str, Dict[str, str]]:
-        return "kinesis", {
-            "streamName": self.stream,
-            "region": self.region,
-            "startingPosition": "TRIM_HORIZON",
+        # Nombres verificados contra la documentacion de awslabs, no supuestos.
+        # El formato es "aws-kinesis", no "kinesis", y las opciones llevan
+        # prefijo. Ojo: "startingposition" va en minuscula, a diferencia del
+        # resto.
+        return "aws-kinesis", {
+            "kinesis.streamName": self.stream,
+            "kinesis.region": self.region,
+            "kinesis.startingposition": "TRIM_HORIZON",
         }
 
+    def normalizar(self, df):
+        """Sobre de Kinesis -> esquema comun.
+
+        No hay columna con el identificador de shard: el conector expone
+        streamName, partitionKey, sequenceNumber y la marca de llegada. Se deja
+        `particion` a nulo en vez de inventar un valor.
+        """
+        from pyspark.sql import functions as F
+
+        return df.select(
+            F.col("partitionKey").alias("clave"),
+            F.col("data").cast("string").alias("valor"),
+            F.col("streamName").alias("origen"),
+            F.lit(None).cast("string").alias("particion"),
+            F.col("sequenceNumber").alias("desplazamiento"),
+            F.col("approximateArrivalTimestamp").alias("ts_cola"),
+        )
+
     def paquetes_maven(self) -> str:
-        # En EMR el conector viene con la imagen. Se confirma en la fase 5,
-        # junto con la version de Spark de la release de EMR elegida.
+        # Vacio a proposito: desde EMR 7.1 el conector viene en la imagen, en
+        # /usr/share/aws/kinesis/spark-sql-kinesis/lib/. Verificado en la
+        # documentacion de AWS.
         return ""
+
+    def desplazamiento_es_consecutivo(self) -> bool:
+        # Los numeros de secuencia de Kinesis crecen pero no son consecutivos,
+        # asi que contar huecos por resta no vale.
+        return False
 
 
 def _destino() -> Tuple[str, str]:

@@ -196,3 +196,33 @@ me cuesta.
   quiero tener que explicar en una entrevista.
 - **Cuesta**: hay que rehacer la ingesta antes de medir o grabar, unos diez
   minutos. Barato comparado con publicar un número contaminado.
+
+## D17 — La interfaz normaliza el sobre, no solo el formato
+
+- **Decidí**: `LecturaSpark` gana `normalizar(df)`, que traduce el sobre propio
+  de cada fuente al esquema común `clave, valor, origen, particion,
+  desplazamiento, ts_cola`. También gana `desplazamiento_es_consecutivo()`.
+- **Alternativas**: dejar que cada job seleccione sus columnas; escribir dos
+  versiones del job de Bronze.
+- **Por qué**: dar solo formato y opciones no aislaba nada. Kafka devuelve
+  `key, value, topic, partition, offset, timestamp` y Kinesis devuelve `data,
+  streamName, partitionKey, sequenceNumber, approximateArrivalTimestamp`.
+  `bronce.py` hacía `F.col("offset")`: **funcionaba en local y no habría
+  arrancado en AWS**. No había ningún `if entorno == "aws"`, pero la diferencia
+  de entorno se había filtrado igual, columna a columna. Se descubrió leyendo
+  la documentación de EMR antes de escribir Terraform, no pagando.
+- **Cuesta**: `desplazamiento` pasa a ser texto —el número de secuencia de
+  Kinesis tiene 56 dígitos y no cabe en un BIGINT—, así que el conteo de huecos
+  necesita un CAST y solo aplica a Kafka. Corrige un defecto de D9.
+
+## D18 — Las versiones locales bajan a las de EMR
+
+- **Decidí**: Spark 3.5.6 e Iceberg 1.10.0 en local, igualando EMR Serverless
+  7.13.0. Antes eran 3.5.9 y 1.11.0.
+- **Alternativas**: quedarse en lo más reciente y confiar en que 3.5.x sea
+  compatible entre parches.
+- **Por qué**: el objetivo del proyecto es que los jobs sean idénticos en los
+  dos entornos, y el destino manda sobre el portátil. Hadoop y Scala no cambian
+  (3.3.4 y 2.12.18), así que el ajuste toca solo dos piezas.
+- **Cuesta**: se renuncia a lo último publicado. A cambio, lo que funciona en
+  local es lo que se va a ejecutar en AWS, sin sorpresas de parche.

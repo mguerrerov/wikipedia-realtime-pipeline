@@ -31,13 +31,39 @@ def main() -> int:
     spark = constructor.getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
 
+    def cuenta(nombre: str) -> int:
+        """Cuenta filas, o devuelve -1 si la tabla aun no existe.
+
+        Una tabla puede faltar legitimamente: si todavia no se ha lanzado el
+        job que la escribe. El script informa y sigue, en vez de reventar.
+        """
+        try:
+            return spark.table("%s.%s" % (CAT, nombre)).count()
+        except Exception:
+            return -1
+
     titulo("VOLUMEN DE CADA CAPA")
-    for capa in ("bronce.cambios", "plata.cambios"):
-        n = spark.table("%s.%s" % (CAT, capa)).count()
-        print("  %-28s %8d filas" % (capa, n))
-    for tabla in ("actividad_por_wiki", "humano_vs_bot", "paginas_concurrentes"):
-        n = spark.table("%s.oro.%s" % (CAT, tabla)).count()
-        print("  %-28s %8d filas" % ("oro." + tabla, n))
+    tablas = [
+        "bronce.cambios",
+        "plata.cambios",
+        "oro.actividad_por_wiki",
+        "oro.humano_vs_bot",
+        "oro.paginas_concurrentes",
+    ]
+    existentes = set()
+    for nombre in tablas:
+        n = cuenta(nombre)
+        if n < 0:
+            print("  %-28s  (sin crear todavia)" % nombre)
+        else:
+            existentes.add(nombre)
+            print("  %-28s %8d filas" % (nombre, n))
+
+    if not {"oro.actividad_por_wiki", "oro.humano_vs_bot"} <= existentes:
+        print("")
+        print("Las tablas de Gold no existen: lanza antes `docker compose run --rm oro`.")
+        spark.stop()
+        return 0
 
     titulo("LATENCIA EXTREMO A EXTREMO (segundos)")
     # Desde meta.dt -cuando Wikimedia publico el evento- hasta que la fila

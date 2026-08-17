@@ -8,16 +8,20 @@
 #
 # Versiones y su procedencia: docs/versiones.md
 
-# Java 17 y no la etiqueta corta `3.5.9`, que trae Java 11: Iceberg 1.11.0 esta
-# compilado para Java 17 (class file 61) y con Java 11 el job muere al crear la
-# sesion con UnsupportedClassVersionError. Mismo Spark y misma Scala.
-FROM apache/spark:3.5.9-scala2.12-java17-python3-r-ubuntu
+# Spark 3.5.6 y no la ultima 3.5.x: es la version que trae EMR Serverless
+# 7.13.0, y el entorno de destino manda sobre el de desarrollo.
+#
+# Java 17 y no la etiqueta corta: Iceberg esta compilado para Java 17 (class
+# file 61) y con Java 11 el job muere al crear la sesion con
+# UnsupportedClassVersionError. Coincide ademas con Corretto 17, el JDK por
+# defecto de EMR 7.x.
+FROM apache/spark:3.5.6-scala2.12-java17-python3-r-ubuntu
 
 USER root
 
 ARG MAVEN=https://repo1.maven.org/maven2
-ARG SPARK=3.5.9
-ARG ICEBERG=1.11.0
+ARG SPARK=3.5.6
+ARG ICEBERG=1.10.0
 ARG HADOOP=3.3.4
 ARG AWS_SDK=1.12.262
 ARG KAFKA_CLIENTS=3.4.1
