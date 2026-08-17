@@ -146,6 +146,74 @@ services:
       --driver-memory 2g
       /app/src/jobs/bronce.py --duracion ${DURACION_JOB:-0}
 
+  plata:
+    image: pipeline-spark:3.5.9-java17
+    profiles: ["jobs"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment: *entorno-spark
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[2]
+      --driver-memory 2g
+      /app/src/jobs/plata.py --duracion ${DURACION_JOB:-0}
+
+  oro:
+    image: pipeline-spark:3.5.9-java17
+    profiles: ["jobs"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment: *entorno-spark
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[6]
+      --driver-memory 3g
+      /app/src/jobs/oro.py --duracion ${DURACION_JOB:-0}
+
+  # Generador sintetico: la unica forma de provocar retrasos y duplicados, que
+  # la fuente real no produce. Se lanza a mano con los parametros del ensayo.
+  generador:
+    build: .
+    profiles: ["jobs"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      crear-topico:
+        condition: service_completed_successfully
+    environment:
+      FUENTE_EVENTOS: kafka
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPICO: ${KAFKA_TOPICO:-wikimedia.cambios}
+    command: ["python", "-m", "src.generador"]
+
+  consultas:
+    image: pipeline-spark:3.5.9-java17
+    profiles: ["jobs"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment: *entorno-spark
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[4]
+      --driver-memory 2g
+      /app/src/jobs/consultas.py
+
+  tardios:
+    image: pipeline-spark:3.5.9-java17
+    profiles: ["jobs"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment: *entorno-spark
+    command: >
+      /opt/spark/bin/spark-submit
+      --master local[2]
+      --driver-memory 2g
+      /app/src/jobs/analiza_tardios.py
+
   # Comprueba que Bronze no perdio ni duplico. Se lanza a mano:
   #   docker compose run --rm verifica
   verifica:

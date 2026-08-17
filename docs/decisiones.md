@@ -146,3 +146,38 @@ me cuesta.
   se calculan de forma exacta, no aproximada.
 - **Cuesta**: Silver tiene que parsear, y la tabla ocupa más que si estuviera
   tipada. Medido: 6,4 MB para 25.911 eventos.
+
+## D13 — Deduplicación con `dropDuplicatesWithinWatermark`
+
+- **Decidí**: deduplicar con `dropDuplicatesWithinWatermark(["meta_id"])` sobre
+  un watermark de 30 s en `ts_evento`.
+- **Alternativas**: `dropDuplicates(["meta_id"])` sin watermark; deduplicar en
+  la consulta, no en la escritura.
+- **Por qué**: `dropDuplicates` sin watermark guarda todos los identificadores
+  vistos **para siempre**: el estado crece sin límite y el job acaba muriendo
+  por memoria. La variante con watermark solo recuerda dentro de la ventana.
+- **Cuesta**: un duplicado separado más de 30 s de su original no se detecta.
+  Aceptable: los duplicados vienen de reconexiones y reprocesos, que ocurren en
+  segundos, no en minutos.
+
+## D14 — Gold: una ventana deslizante para P3, fijas para P1 y P2
+
+- **Decidí**: P1 y P2 con ventana fija de 1 minuto; P3 con ventana deslizante
+  de 5 minutos avanzando cada minuto.
+- **Alternativas**: ventana fija también para P3.
+- **Por qué**: "a la vez" es una propiedad de la ventana. Con ventanas fijas,
+  dos personas editando la misma página a las 10:00:59 y 10:01:01 caen en
+  ventanas distintas y la coincidencia no se ve, que es justo lo que P3 busca
+  detectar. La deslizante la captura.
+- **Cuesta**: cinco veces más estado y cinco filas por coincidencia en vez de
+  una. Con este volumen no importa; con más habría que subir el paso.
+
+## D15 — Los tres jobs de Gold van en un proceso, con seis núcleos
+
+- **Decidí**: las tres consultas en un solo job, lanzado con `local[6]`.
+- **Alternativas**: tres jobs separados; dejarlo en `local[2]`.
+- **Por qué**: comparten origen y ciclo de vida, y separarlas leería Silver
+  tres veces. Con `local[2]` los lotes tardaban 18-32 s para un disparador de
+  15 s: tres consultas simultáneas no caben en dos núcleos.
+- **Cuesta**: si una consulta falla, se paran las tres. Es deliberado: seguir
+  con dos de tres dejaría las tablas incoherentes entre sí.
