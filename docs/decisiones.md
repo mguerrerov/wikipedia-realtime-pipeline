@@ -181,3 +181,18 @@ me cuesta.
   15 s: tres consultas simultáneas no caben en dos núcleos.
 - **Cuesta**: si una consulta falla, se paran las tres. Es deliberado: seguir
   con dos de tres dejaría las tablas incoherentes entre sí.
+
+## D16 — Los ensayos sintéticos no comparten almacén con la evidencia
+
+- **Decidí**: las tandas del generador se ejecutan sobre volúmenes desechables.
+  Antes de una ejecución destinada a evidencia o a métricas, `docker compose
+  down -v` y empezar limpio, solo con la fuente real.
+- **Alternativas**: filtrar los eventos sintéticos por `comment` dentro de los
+  jobs de Gold; publicarlos a un topic aparte.
+- **Por qué**: en la fase 3 los sintéticos dominaron la tabla de páginas
+  concurrentes —400 títulos y 60 usuarios generan más coincidencia que el
+  tráfico real— y dejaron esa respuesta sin valor. Filtrar dentro de los jobs
+  metería lógica de pruebas en el código de producción, que es justo lo que no
+  quiero tener que explicar en una entrevista.
+- **Cuesta**: hay que rehacer la ingesta antes de medir o grabar, unos diez
+  minutos. Barato comparado con publicar un número contaminado.

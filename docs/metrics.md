@@ -102,23 +102,89 @@ real, pero el rango entre ventanas va de 30,8 % a 55,6 %. Es el argumento
 medido de por qué streaming y no batch: la media diaria esconde una variación
 de 25 puntos.
 
-### Latencia extremo a extremo
+### Latencia extremo a extremo — medición contaminada, descartada
 
-Desde `meta.dt` hasta la fila escrita en Silver, últimos 15 minutos de datos:
+Primera medición, con Silver recuperando el histórico de Bronze: p50 de
+106,84 s. **No es representativa** y no debe usarse. Se conserva la nota porque
+el error es instructivo: lo que medía era la velocidad de recuperación, no la
+latencia del pipeline en marcha.
 
-| Filas | Mínimo | p50 | p95 | p99 | Máximo |
-|---|---|---|---|---|---|
-| 43.854 | 3,01 s | 106,84 s | 265,81 s | 289,01 s | 344,86 s |
+## Ejecución limpia en régimen — 17/08/2026, 18:28-18:37
 
-**Esta medición no es representativa del régimen estacionario y no debe ir al
-README tal cual.** Durante el ensayo, Silver estuvo casi todo el tiempo
-poniéndose al día con el histórico acumulado en Bronze, así que lo que mide es
-la velocidad de recuperación, no la latencia en marcha. El mínimo de 3,01 s se
-acerca más al suelo real; el suelo teórico son los dos disparadores encadenados
-(10 s en Bronze más 10 s en Silver).
+Volúmenes borrados antes de empezar. Solo fuente real, sin generador. Las tres
+capas arrancadas escalonadas (Bronze, Silver 45 s después, Gold a los 2 min)
+para que ninguna acumulase cola.
 
-**Pendiente**: repetir con las tablas al día y ambos jobs corriendo en régimen,
-sin cola acumulada. Tarea de la fase 4.
+| Tabla | Filas |
+|---|---|
+| `bronce.cambios` | 19.647 |
+| `plata.cambios` | 18.556 |
+| `oro.actividad_por_wiki` | 935 |
+| `oro.humano_vs_bot` | 14 |
+| `oro.paginas_concurrentes` | 85 |
+
+### Latencia extremo a extremo, en régimen
+
+Desde `meta.dt` hasta la fila escrita en Silver, 18.556 filas:
+
+| Mínimo | **p50** | **p95** | p99 | Máximo |
+|---|---|---|---|---|
+| 1,39 s | **15,59 s** | **55,75 s** | 77,43 s | 82,63 s |
+
+Estas sí son las cifras buenas. El p50 de 15,6 s encaja con el suelo teórico:
+dos disparadores encadenados de 10 s, uno en Bronze y otro en Silver, dan una
+media esperable en torno a esa cifra. La cola hasta 82 s corresponde a eventos
+que llegan justo después de cerrarse un micro-lote y esperan al siguiente en
+cada una de las dos capas.
+
+Bajar este número es cuestión de acortar los disparadores, a cambio de más
+ficheros pequeños en Iceberg. No se ha tocado: 15 s de latencia es de sobra
+para las preguntas de este pipeline.
+
+### Almacenamiento: los puntos de control dominan
+
+| Ruta | Tamaño |
+|---|---|
+| `bronce` | 7,4 MB |
+| `plata` | 3,9 MB |
+| `oro` | 2,4 MB |
+| **`_checkpoints`** | **180 MB** |
+
+**Los puntos de control ocupan trece veces más que los datos.** No es un error:
+Spark conserva por defecto las últimas 100 versiones del estado de cada consulta
+(`spark.sql.streaming.minBatchesToRetain`), y aquí hay cinco consultas con
+estado, tres de ellas con agregación por ventana.
+
+Consecuencia directa para AWS: dimensionar S3 por el volumen de datos deja fuera
+la parte que más ocupa. Antes de la fase 6 conviene bajar `minBatchesToRetain`,
+o al menos saber que esos 180 MB por cada ocho minutos de ejecución van a estar
+ahí. **Pendiente de ajustar.**
+
+### P2 con datos reales
+
+| Ventanas | Mínimo | Media | Máximo | Desviación |
+|---|---|---|---|---|
+| 7 | 27,8 % | 30,5 % | 35,2 % | 2,9 |
+
+Media del 30,5 %, frente al 41,1 % que midió la fase 0 en otra franja horaria.
+Esa diferencia de diez puntos entre dos sesiones es en sí misma un resultado: la
+proporción de bots depende de la hora, y por eso la pregunta se respondió por
+ventanas y no con un número único.
+
+Las cifras anteriores de esta sección (29 ventanas, 30,8-55,6 %) están
+contaminadas por el generador sintético, que produce un 41 % de bots por
+construcción. No usarlas.
+
+### P3 con datos reales
+
+85 filas en 8 minutos. Ejemplos reales detectados: `Friends in Love (Dionne
+Warwick album)` en la Wikipedia inglesa con 2 editores y 3 ediciones sostenido
+durante cinco ventanas consecutivas, `Deaths in 2026`, `Q141111347` en Wikidata,
+y `Wikipedia:Löschkandidaten/17. August 2026` en la alemana.
+
+Que aparezcan páginas de discusión y de mantenimiento tiene sentido: son donde
+varias personas coinciden de verdad. Contrasta con la ejecución contaminada,
+donde el generador copaba la tabla con títulos inventados.
 
 ## Recursos consumidos en local
 
