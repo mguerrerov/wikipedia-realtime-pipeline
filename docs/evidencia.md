@@ -293,7 +293,13 @@ algo.
 ```powershell
 docker stop job-bronce job-plata job-oro
 docker compose down
+Remove-Item Env:DURACION_JOB
 ```
+
+Esa última línea borra la variable de duración. En PowerShell `$env:` dura toda
+la sesión de la ventana, al contrario que el prefijo de Git Bash, que solo vale
+para el comando que lo lleva. Si no la borras, el siguiente `docker compose run`
+que lances en esa misma ventana heredará el tiempo sin que te lo esperes.
 
 `down` para los contenedores pero **conserva los datos**. Si quieres empezar de
 cero otra vez, `docker compose down -v`.
