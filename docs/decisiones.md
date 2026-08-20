@@ -308,3 +308,17 @@ me cuesta.
   abierto, y sin la pareja no se ve.
 - **Cuesta**: duplicar cinco consultas en dos dialectos de SQL, que hay que
   mantener a la par. Es duplicación deliberada, no descuido.
+
+## D25 — Sin vídeo: la evidencia son las catorce capturas
+
+- **Decidí**: no grabar el vídeo corto de la fase 4. La evidencia del proyecto
+  son las capturas de `docs/Capturas/`.
+- **Alternativas**: el vídeo de 90 segundos en siete planos que estaba guionado.
+- **Por qué**: las capturas ya cubren el recorrido completo —cola, job, tablas
+  en el almacén, integridad, watermark y las mismas preguntas desde dos
+  motores—. Lo único que aporta el vídeo es el movimiento, y montar y mantener
+  un vídeo cuesta más de lo que ese movimiento añade a quien revisa el
+  repositorio en dos minutos.
+- **Cuesta**: no se ve el pipeline en marcha, solo su resultado. Quien dude de
+  que esto corre de verdad tiene que fiarse de las capturas o clonar el repo. El
+  guion queda en git por si algún día compensa.

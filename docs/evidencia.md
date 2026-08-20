@@ -258,45 +258,18 @@ haber elegido Iceberg. Sin las dos capturas al lado, el argumento no se ve.
 
 ---
 
-## 5. El vídeo — 90 segundos
+## 5. El vídeo — descartado
 
-### Cómo grabar en Windows 11
+**No se graba.** Las capturas cubren el recorrido entero: la cola, el job, las
+tablas en el almacén, la prueba de integridad, el watermark medido y las mismas
+preguntas respondidas por dos motores.
 
-Pulsa `Windows` + `G` y se abre la barra de juego. En el panel de captura
-(el del icono de la cámara) está el botón de grabar; el atajo directo es
-`Windows` + `Alt` + `R`. Los vídeos acaban en `Vídeos\Capturas`.
+Lo único que se pierde es el movimiento —el contador de la cola subiendo y las
+instantáneas apareciendo cada diez segundos—, y no compensa el trabajo de
+grabarlo y montarlo para lo que añade.
 
-Graba **la ventana**, no la pantalla entera, para que no salgan tu barra de
-tareas ni tus notificaciones.
-
-### Sin voz
-
-Nada de narración. Rótulos de texto sobre la imagen: se leen igual con el sonido
-apagado —que es como se ve casi todo— y no hay que regrabar audio si cambias
-algo.
-
-### Los siete planos
-
-| Plano | Duración | Qué se graba | Rótulo que pones encima |
-|---|---|---|---|
-| 1 | 0:00–0:10 | El diagrama de arquitectura, quieto | «Wikimedia → Kafka → Spark → Iceberg» |
-| 2 | 0:10–0:25 | Consola de Redpanda, el contador subiendo **en vivo** | «~37 eventos/s de la Wikipedia real» |
-| 3 | 0:25–0:40 | MinIO en `bronce/cambios/metadata`, refrescando: aparecen instantáneas | «Un micro-lote cada 10 s, con punto de control» |
-| 4 | 0:40–0:50 | MinIO, entrando de `warehouse` a `oro` | «Tres capas en tablas Iceberg» |
-| 5 | 0:50–1:05 | Salida de `verifica`, con los ceros en pantalla | «Reinicio a mitad: 0 perdidos, 0 duplicados» |
-| 6 | 1:05–1:20 | Salida de `consumo`, hasta P2 | «Mismas tablas, otro motor: DuckDB» |
-| 7 | 1:20–1:30 | El `terraform plan` del repositorio, quieto | «El mismo pipeline en AWS. Sin aplicar: 0 €» |
-
-### Tres avisos
-
-1. **Los planos 2 y 3 tienen que ser movimiento de verdad**, no una imagen fija.
-   Son lo único del vídeo que una captura no puede transmitir, así que son los
-   que justifican que haya vídeo.
-2. **El pipeline tiene que estar corriendo mientras grabas.** Los datos que
-   quedan en los volúmenes valen para las capturas, pero para el vídeo hay que
-   volver a lanzar la sección 2.
-3. Mira la pantalla antes de darle a grabar. Aquí las credenciales son de
-   juguete, pero el hábito sale gratis.
+Si algún día se rehace, el guion de siete planos está en el historial de git,
+en el commit `c996800`.
 
 ---
 
