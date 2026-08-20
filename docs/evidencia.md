@@ -42,25 +42,31 @@ sitio donde hay que pinchar.
 
 ### 2.2 Arranca el pipeline
 
-Cinco comandos, en este orden, en la carpeta del proyecto:
+En este orden, en la carpeta del proyecto. **Los comandos van en PowerShell**,
+que es la consola que abre Windows por defecto:
 
-```bash
+```powershell
 docker compose down -v
 docker compose up -d
-DURACION_JOB=960 docker compose run -d --name job-bronce bronce
+$env:DURACION_JOB="960"; docker compose run -d --name job-bronce bronce
 ```
 
 Ahora **espera unos 100 segundos** y lanza:
 
-```bash
-DURACION_JOB=840 docker compose run -d --name job-plata plata
+```powershell
+$env:DURACION_JOB="840"; docker compose run -d --name job-plata plata
 ```
 
 Espera **otros 120 segundos** y lanza:
 
-```bash
-DURACION_JOB=660 docker compose run -d --name job-oro oro
+```powershell
+$env:DURACION_JOB="660"; docker compose run -d --name job-oro oro
 ```
+
+Si usas Git Bash en vez de PowerShell, la variable va delante del comando y sin
+`$env:`: `DURACION_JOB=960 docker compose run ...`. Las dos formas no son
+intercambiables, y confundirlas da un error de «no se reconoce como nombre de un
+cmdlet».
 
 Por qué la espera y no los tres de golpe: Silver no tiene nada que leer hasta
 que Bronze ha escrito su primer bloque, y Gold necesita que Silver lleve un rato
@@ -69,7 +75,7 @@ los tres **terminen a la vez**, unos 16 minutos después del primero.
 
 ### 2.3 Comprueba que va bien antes de seguir
 
-```bash
+```powershell
 docker ps
 ```
 
@@ -105,7 +111,7 @@ pierda.
 
 En la terminal:
 
-```bash
+```powershell
 docker compose ps
 ```
 
@@ -140,7 +146,7 @@ vista sin explicar nada.
 
 En la terminal:
 
-```bash
+```powershell
 docker logs -f job-bronce
 ```
 
@@ -170,14 +176,14 @@ Ocupa mucho más que los datos, y eso está explicado en `docs/metrics.md`.)*
 **Antes de esta captura, reinicia Bronze de verdad**, o el resultado no
 demuestra nada:
 
-```bash
+```powershell
 docker stop job-bronce
 docker start job-bronce
 ```
 
 Espera un minuto y lanza:
 
-```bash
+```powershell
 docker compose run --rm verifica
 ```
 
@@ -190,7 +196,7 @@ y lo dice con una comprobación exacta, no con una promesa.
 
 ### Captura 7 — El watermark, medido
 
-```bash
+```powershell
 docker compose run --rm tardios
 ```
 
@@ -200,7 +206,7 @@ qué el watermark son 30 segundos y no un número puesto a ojo.
 
 ### Captura 8 — Las preguntas, desde Spark
 
-```bash
+```powershell
 docker compose run --rm consultas
 ```
 
@@ -211,7 +217,7 @@ Sale bastante texto. Interesan dos trozos, y puedes hacer dos capturas:
 
 ### Captura 9 — Las mismas preguntas, desde DuckDB
 
-```bash
+```powershell
 docker compose run --rm consumo
 ```
 
@@ -284,7 +290,7 @@ algo.
 
 ## 6. Al terminar
 
-```bash
+```powershell
 docker stop job-bronce job-plata job-oro
 docker compose down
 ```
