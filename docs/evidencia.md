@@ -1,97 +1,295 @@
 # Guion de evidencia — fase 4
 
 El repositorio no va a estar desplegado. Quien lo revise verá capturas y un
-vídeo, y nada más. Este documento es el guion exacto para producirlos, para que
-grabarlos sea mecánico y repetible en vez de una sesión de improvisación.
+vídeo, y nada más.
 
-Todo lo de aquí se hace **en local**. Coste: 0 €.
+Este documento está escrito para seguirse sin conocer las interfaces que
+aparecen. Cada paso dice dónde entrar, qué mirar y cómo saber si ha salido bien.
+Todo es local: coste 0 €.
 
-## Antes de grabar
+---
 
-1. Ventana de terminal ancha y con tipografía grande. Las tablas de salida
-   están calculadas para 78 columnas: si la ventana es más estrecha, se parten
-   y la captura no vale.
-2. Cerrar lo que no sea del proyecto. En las capturas del navegador no debe
-   verse ni una pestaña personal ni la barra de marcadores.
-3. Empezar limpio y dejar el pipeline en marcha:
+## 1. Las cuatro ventanas que vas a usar
+
+Antes de nada, qué es cada cosa. Solo hay cuatro sitios donde mirar.
+
+| Ventana | Dónde | Qué es | Para qué la usas aquí |
+|---|---|---|---|
+| **Terminal** | Tu consola, en la carpeta del proyecto | Donde lanzas todo | Lanzar el pipeline y sacar las tablas de resultados |
+| **Consola de Redpanda** | http://localhost:8080 | Un panel web para ver la cola de mensajes | Ver los eventos entrando en tiempo real |
+| **Consola de MinIO** | http://localhost:9001 | Un explorador de archivos web, el S3 de mentira | Ver que las tablas existen como ficheros |
+| **Grabador de pantalla** | Tecla `Windows` + `G` | La barra de juego de Windows 11, que graba vídeo | El vídeo de 90 s |
+
+La consola de Redpanda **no pide contraseña**. La de MinIO sí: usuario
+`minioadmin`, contraseña `minioadmin`. Son credenciales de juguete que ya están
+en el repositorio, no pasa nada porque salgan en una captura.
+
+Las dos consolas están **en inglés**. Abajo digo el nombre en inglés de cada
+sitio donde hay que pinchar.
+
+---
+
+## 2. Preparación
+
+### 2.1 Deja la pantalla presentable
+
+- Ventana de terminal **ancha y con letra grande**. Las tablas de resultados
+  están calculadas para 78 columnas: si la ventana es más estrecha, las filas se
+  parten por la mitad y la captura no vale. Compruébalo antes con cualquier
+  comando: si las líneas de `=====` no caben enteras, ensancha.
+- Cierra pestañas y ventanas que no sean del proyecto. En las capturas del
+  navegador no debe verse tu barra de marcadores.
+
+### 2.2 Arranca el pipeline
+
+Cinco comandos, en este orden, en la carpeta del proyecto:
 
 ```bash
 docker compose down -v
 docker compose up -d
 DURACION_JOB=960 docker compose run -d --name job-bronce bronce
-# esperar ~100 s
-DURACION_JOB=840 docker compose run -d --name job-plata  plata
-# esperar ~120 s
-DURACION_JOB=660 docker compose run -d --name job-oro    oro
 ```
 
-El escalonado no es capricho: Silver no tiene nada que leer hasta que Bronze ha
-escrito su primer micro-lote, y Gold necesita que Silver haya avanzado el
-watermark. Las duraciones están calculadas para que los tres terminen a la vez.
+Ahora **espera unos 100 segundos** y lanza:
 
-4. **Dejar correr al menos diez minutos antes de tocar nada.** Las cifras de
-   latencia de los primeros minutos miden el recuperado del histórico, no el
-   régimen estacionario. Es el error que ya se cometió una vez (ver
-   `docs/sesiones/`), y se nota porque el p50 sale disparado.
+```bash
+DURACION_JOB=840 docker compose run -d --name job-plata plata
+```
 
-## Capturas
+Espera **otros 120 segundos** y lanza:
 
-En este orden. El orden cuenta la historia: primero que hay datos moviéndose,
-después que llegan bien, y al final qué se puede preguntar.
+```bash
+DURACION_JOB=660 docker compose run -d --name job-oro oro
+```
 
-| # | Qué | Cómo se saca | Qué tiene que verse |
-|---|---|---|---|
-| 1 | El entorno en pie | `docker compose ps` | Los cinco servicios y el estado `healthy` |
-| 2 | Eventos en la cola | http://localhost:8080 → topic `wikimedia.cambios` | Contador subiendo y las tres particiones |
-| 3 | Un evento crudo | Misma consola, un mensaje desplegado | `meta.dt`, `meta.id` y un título en no latino |
-| 4 | El job trabajando | `docker logs -f job-bronce` | Una línea de micro-lote con filas y duración |
-| 5 | Las tablas en objetos | http://localhost:9001 → `almacen/warehouse` | Los tres esquemas: `bronce`, `plata`, `oro` |
-| 6 | Ni pérdida ni duplicado | `docker compose run --rm verifica` | **0 duplicados, 0 huecos** y el recuento |
-| 7 | El watermark de verdad | `docker compose run --rm tardios` | La tabla de supervivencia por tramo de retraso |
-| 8 | Las preguntas, desde Spark | `docker compose run --rm consultas` | P1, P2 y P3 con la latencia p50/p95 |
-| 9 | Las mismas, desde DuckDB | `docker compose run --rm consumo` | Los mismos números, otro motor |
-| 10 | La arquitectura | `docs/arquitectura.md` en GitHub | Los dos diagramas renderizados |
+Por qué la espera y no los tres de golpe: Silver no tiene nada que leer hasta
+que Bronze ha escrito su primer bloque, y Gold necesita que Silver lleve un rato
+en marcha. Las duraciones (960, 840 y 660 segundos) están calculadas para que
+los tres **terminen a la vez**, unos 16 minutos después del primero.
 
-Las capturas 8 y 9 son **la pareja que importa** y conviene ponerlas juntas en
-el README: son la demostración de que la tabla Iceberg es el contrato y de que
-el motor que escribe no es dueño de los datos. Sin las dos al lado, el argumento
-no se ve.
+### 2.3 Comprueba que va bien antes de seguir
 
-La 6 y la 7 son el contenido técnico defendible en una entrevista: una prueba de
-exactitud y una medición del watermark, no una afirmación.
+```bash
+docker ps
+```
 
-## Vídeo corto — 90 segundos
+Tienen que aparecer siete contenedores: `redpanda`, `minio`, `productor`,
+`consola-redpanda`, `job-bronce`, `job-plata` y `job-oro`.
 
-Sin voz. Rótulos de texto sobre la imagen, que se leen igual con el sonido
-apagado y no envejecen si se rehace la grabación.
+Si falta alguno de los `job-`, mira por qué con `docker logs job-plata` (o el
+que falte) y no sigas hasta que estén los tres.
 
-| Plano | Duración | Qué se graba | Rótulo |
+### 2.4 Espera diez minutos antes de tocar nada
+
+Esto no es opcional y es lo más fácil de saltarse.
+
+Los primeros minutos el pipeline está poniéndose al día con lo que ya había en
+la cola, así que las cifras de latencia salen infladas y no reflejan cómo va el
+sistema en marcha. Ya se cometió ese error una vez (está en `docs/sesiones/`) y
+se nota porque el p50 sale disparado.
+
+Aprovecha esos diez minutos para hacer la captura 2 y la 3, que sí se pueden
+hacer desde el principio.
+
+---
+
+## 3. Las capturas
+
+Diez, en este orden. El orden cuenta una historia: **primero que hay datos
+moviéndose, luego que llegan bien, y al final qué puedes preguntarles.**
+
+Guárdalas numeradas (`01-entorno.png`, `02-cola.png`...) para que el orden no se
+pierda.
+
+### Captura 1 — El entorno en pie
+
+En la terminal:
+
+```bash
+docker compose ps
+```
+
+**La captura buena** es la que muestra la lista de servicios con la columna de
+estado en `running` y, en los que lo tengan, `healthy`.
+
+### Captura 2 — Los eventos entrando en la cola
+
+1. Abre http://localhost:8080
+2. En el menú de la izquierda pincha en **Topics**
+3. Pincha en el topic `wikimedia.cambios`
+
+**La captura buena** muestra el número de mensajes y que hay **tres particiones**.
+Refresca un par de veces: el contador tiene que subir. Si no sube, el productor
+no está publicando — mira `docker logs productor`.
+
+### Captura 3 — Un evento por dentro
+
+1. Sigues en el topic `wikimedia.cambios`
+2. Entra en la pestaña de mensajes (**Messages**)
+3. Despliega un mensaje cualquiera pinchando en la flecha de su izquierda
+
+**La captura buena** deja ver los campos `meta.dt` y `meta.id`, que son los dos
+que sostienen todo el diseño: `meta.dt` es el tiempo de evento y `meta.id` la
+clave de deduplicación.
+
+Si puedes, busca un mensaje cuyo título esté en un alfabeto no latino (ruso,
+árabe, japonés). Demuestra que el UTF-8 sobrevive de punta a punta, y salta a la
+vista sin explicar nada.
+
+### Captura 4 — El job trabajando
+
+En la terminal:
+
+```bash
+docker logs -f job-bronce
+```
+
+Verás mucho texto pasar. Espera a que aparezca una línea de las que informan de
+un bloque procesado, con su número de filas.
+
+**La captura buena** es la que pilla esa línea. Sal con `Ctrl+C` (eso corta el
+seguimiento del log, **no** el job).
+
+### Captura 5 — Las tablas, ya en el almacén
+
+1. Abre http://localhost:9001
+2. Entra con `minioadmin` / `minioadmin`
+3. Menú de la izquierda: **Object Browser**
+4. Entra en el bucket `almacen`, y dentro en la carpeta `warehouse`
+
+**La captura buena** enseña las tres carpetas juntas: `bronce`, `plata` y `oro`.
+Son las tres capas del pipeline. Si te apetece, entra en `plata/cambios` y saca
+otra de las carpetas `data` y `metadata`: así se ve que una tabla Iceberg es
+literalmente ficheros.
+
+*(Verás también `_checkpoints`. Es normal: son los puntos de control de Spark.
+Ocupa mucho más que los datos, y eso está explicado en `docs/metrics.md`.)*
+
+### Captura 6 — Ni un dato perdido ni uno duplicado
+
+**Antes de esta captura, reinicia Bronze de verdad**, o el resultado no
+demuestra nada:
+
+```bash
+docker stop job-bronce
+docker start job-bronce
+```
+
+Espera un minuto y lanza:
+
+```bash
+docker compose run --rm verifica
+```
+
+**La captura buena** es el final de la salida: los ceros de `DUPLICADOS` y
+`HUECOS TOTALES`, y la línea `VEREDICTO: CORRECTO`.
+
+Esta es la captura técnicamente más valiosa de todas. Dice que el pipeline
+sobrevive a que lo maten a mitad de faena sin perder ni repetir un solo evento,
+y lo dice con una comprobación exacta, no con una promesa.
+
+### Captura 7 — El watermark, medido
+
+```bash
+docker compose run --rm tardios
+```
+
+**La captura buena** es la tabla de supervivencia: qué porcentaje de eventos
+tardíos entra según cuánto se hayan retrasado. Es la justificación medida de por
+qué el watermark son 30 segundos y no un número puesto a ojo.
+
+### Captura 8 — Las preguntas, desde Spark
+
+```bash
+docker compose run --rm consultas
+```
+
+Sale bastante texto. Interesan dos trozos, y puedes hacer dos capturas:
+
+- El bloque de **latencia**, con p50 y p95
+- El bloque de **P2**, la proporción de bots por minuto
+
+### Captura 9 — Las mismas preguntas, desde DuckDB
+
+```bash
+docker compose run --rm consumo
+```
+
+**La captura buena** enseña los mismos bloques que la 8, para que se vean los
+mismos números.
+
+### Captura 10 — La arquitectura
+
+Abre `docs/arquitectura.md` en GitHub, ya subido, y captura los dos diagramas.
+Tienen que verse dibujados, no como código: si ves texto suelto que empieza por
+`flowchart`, es que estás mirando el fichero en crudo y no la vista renderizada.
+
+---
+
+## 4. La pareja que importa
+
+**Pon las capturas 8 y 9 juntas en el README, una al lado de la otra.**
+
+Por separado son dos listados de números y no dicen gran cosa. Juntas dicen algo
+que se defiende en una entrevista: **las escribió Spark, las lee DuckDB, y
+DuckDB no conoce el catálogo ni participó en la escritura**. Abre las tablas por
+su ruta y ya está. No hay exportación, ni copia, ni proceso intermedio.
+
+Eso es lo que significa que el formato de tabla sea abierto, y es la razón de
+haber elegido Iceberg. Sin las dos capturas al lado, el argumento no se ve.
+
+---
+
+## 5. El vídeo — 90 segundos
+
+### Cómo grabar en Windows 11
+
+Pulsa `Windows` + `G` y se abre la barra de juego. En el panel de captura
+(el del icono de la cámara) está el botón de grabar; el atajo directo es
+`Windows` + `Alt` + `R`. Los vídeos acaban en `Vídeos\Capturas`.
+
+Graba **la ventana**, no la pantalla entera, para que no salgan tu barra de
+tareas ni tus notificaciones.
+
+### Sin voz
+
+Nada de narración. Rótulos de texto sobre la imagen: se leen igual con el sonido
+apagado —que es como se ve casi todo— y no hay que regrabar audio si cambias
+algo.
+
+### Los siete planos
+
+| Plano | Duración | Qué se graba | Rótulo que pones encima |
 |---|---|---|---|
 | 1 | 0:00–0:10 | El diagrama de arquitectura, quieto | «Wikimedia → Kafka → Spark → Iceberg» |
-| 2 | 0:10–0:25 | Consola de Redpanda, contador subiendo, en vivo | «~37 eventos/s de la Wikipedia real» |
-| 3 | 0:25–0:40 | Logs de Bronze, dos o tres micro-lotes seguidos | «Structured Streaming, checkpoint en cada lote» |
+| 2 | 0:10–0:25 | Consola de Redpanda, el contador subiendo **en vivo** | «~37 eventos/s de la Wikipedia real» |
+| 3 | 0:25–0:40 | Logs de Bronze, dos o tres bloques seguidos | «Structured Streaming, con punto de control» |
 | 4 | 0:40–0:50 | MinIO, entrando de `warehouse` a `oro` | «Tres capas en tablas Iceberg» |
-| 5 | 0:50–1:05 | Salida de `verifica`, con el cero en pantalla | «Reinicio en mitad: 0 perdidos, 0 duplicados» |
+| 5 | 0:50–1:05 | Salida de `verifica`, con los ceros en pantalla | «Reinicio a mitad: 0 perdidos, 0 duplicados» |
 | 6 | 1:05–1:20 | Salida de `consumo`, hasta P2 | «Mismas tablas, otro motor: DuckDB» |
 | 7 | 1:20–1:30 | El `terraform plan` del repositorio, quieto | «El mismo pipeline en AWS. Sin aplicar: 0 €» |
 
-Notas de grabación:
+### Tres avisos
 
-- Los planos 2 y 3 tienen que ser **movimiento real**, no una imagen fija. Es lo
-  único del vídeo que no se puede transmitir con una captura, así que es lo que
-  justifica que haya vídeo.
-- El plano 5 pide un reinicio de verdad para ser honesto: parar `job-bronce`
-  con `docker stop`, volver a lanzarlo, y entonces pasar `verifica`. Si no se
-  reinicia nada, el cero no demuestra nada.
-- Ni una credencial en pantalla. `minioadmin` es de juguete y está en el
-  repositorio, pero acostumbrarse a mirar antes de grabar sale gratis.
+1. **Los planos 2 y 3 tienen que ser movimiento de verdad**, no una imagen fija.
+   Son lo único del vídeo que una captura no puede transmitir, así que son los
+   que justifican que haya vídeo.
+2. **El pipeline tiene que estar corriendo mientras grabas.** Los datos que
+   quedan en los volúmenes valen para las capturas, pero para el vídeo hay que
+   volver a lanzar la sección 2.
+3. Mira la pantalla antes de darle a grabar. Aquí las credenciales son de
+   juguete, pero el hábito sale gratis.
 
-## Al terminar
+---
+
+## 6. Al terminar
 
 ```bash
-docker stop job-bronce job-plata job-oro 2>/dev/null
+docker stop job-bronce job-plata job-oro
 docker compose down
 ```
 
-Los volúmenes sobreviven a `down`; se borran con `down -v`. No dejar jobs de
-streaming corriendo después de grabar.
+`down` para los contenedores pero **conserva los datos**. Si quieres empezar de
+cero otra vez, `docker compose down -v`.
+
+No dejes jobs de streaming corriendo después de grabar.
