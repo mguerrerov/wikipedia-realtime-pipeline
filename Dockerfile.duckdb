@@ -1,0 +1,24 @@
+# Imagen de consumo de la fase 4. DuckDB lee las tablas Iceberg que escribio
+# Spark; no comparte nada con el, ni siquiera el catalogo. Ver docs/versiones.md.
+FROM python:3.10.21-slim-bookworm
+
+WORKDIR /app
+
+COPY requirements-consumo.txt .
+RUN pip install --no-cache-dir -r requirements-consumo.txt
+
+# Las extensiones se descargan aqui, en la construccion, y no en cada
+# ejecucion: asi el contenedor de consumo no necesita salir a internet.
+RUN python -c "import duckdb; c = duckdb.connect(); c.execute('INSTALL httpfs; INSTALL iceberg;')" \
+    && cp -r /root/.duckdb /opt/duckdb-extensiones
+
+COPY src/ ./src/
+
+ENV PYTHONUNBUFFERED=1
+
+RUN useradd --create-home --uid 10002 consumo \
+    && cp -r /opt/duckdb-extensiones /home/consumo/.duckdb \
+    && chown -R consumo:consumo /home/consumo/.duckdb
+USER consumo
+
+CMD ["python", "-m", "src.consumo_duckdb"]

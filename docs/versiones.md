@@ -140,3 +140,21 @@ diferencia de las otras dos—.
 Fuentes: documentación de EMR Serverless (versiones de release y release
 7.13.0), historial de versiones de Iceberg en EMR, página del conector de
 Kinesis para Structured Streaming y README de `awslabs/spark-sql-kinesis-connector`.
+
+## Consumo de la fase 4
+
+| Pieza | Versión | Por qué |
+|---|---|---|
+| Python | **3.10.21-slim-bookworm** | La misma imagen base que el productor |
+| `duckdb` | **1.5.5** | Última estable en PyPI el 20/08/2026 |
+| Extensiones | `httpfs`, `iceberg` | Se instalan **en la construcción** de la imagen |
+
+Las extensiones se hornean en la imagen en vez de descargarse en cada
+ejecución, por la misma razón que las JAR de Spark: un contenedor que necesita
+salir a internet para arrancar es un contenedor que falla el día que no hay red.
+
+Comprobado en la ejecución real: DuckDB lee el catálogo de ficheros **sin
+necesidad de `unsafe_enable_version_guessing`**, porque sigue el
+`version-hint.text` que deja Iceberg. Si en alguna versión futura dejara de
+seguirlo, el síntoma sería un error de "no se puede determinar la versión" y el
+apaño sería ese flag.

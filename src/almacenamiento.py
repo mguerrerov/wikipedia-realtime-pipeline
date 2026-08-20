@@ -105,3 +105,35 @@ def ruta_checkpoint(nombre_job: str) -> str:
         )
         base = almacen.rstrip("/") + "/_checkpoints"
     return "%s/%s" % (base.rstrip("/"), nombre_job)
+
+
+def configuracion_duckdb(nombre: str = None) -> Dict[str, str]:
+    """Datos de conexion para DuckDB, el motor de consumo de la fase 4.
+
+    DuckDB no usa el catalogo de Iceberg: abre la tabla por su ruta y sigue el
+    `version-hint.text` que deja el catalogo de ficheros. Por eso solo necesita
+    saber donde esta el almacen y como hablar con el servicio de objetos.
+
+    Va aqui, y no en el script de consumo, por la misma razon que el resto del
+    modulo: es lo unico que cambia entre entornos.
+    """
+    nombre = (nombre or os.environ.get(VARIABLE, POR_DEFECTO)).strip().lower()
+    if nombre != "hadoop":
+        raise ValueError(
+            "DuckDB solo se usa en local sobre MinIO. En AWS el consumo es "
+            "Athena sobre el catalogo de Glue, no este script."
+        )
+
+    almacen = os.environ.get("ALMACEN", "s3a://almacen/warehouse")
+    endpoint = os.environ.get("S3_ENDPOINT", "http://minio:9000")
+
+    return {
+        # DuckDB habla s3://; el resto del proyecto escribe s3a:// porque esa
+        # es la ruta que entiende el conector de Hadoop. Es el mismo sitio.
+        "almacen": almacen.replace("s3a://", "s3://", 1).rstrip("/"),
+        # El secreto de DuckDB quiere host:puerto, sin esquema.
+        "endpoint": endpoint.split("://", 1)[-1],
+        "usar_ssl": "true" if endpoint.startswith("https://") else "false",
+        "clave": os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
+        "secreto": os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+    }

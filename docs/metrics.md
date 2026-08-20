@@ -199,3 +199,80 @@ Memoria del contenedor de Gold en marcha: 2,4 GB de los 15,6 disponibles.
 ## Coste en AWS
 
 **0 €.** No se ha creado ningún recurso todavía.
+
+## Ejecución limpia de la fase 4 — 20/08/2026, 11:04–11:21
+
+Volúmenes borrados antes de empezar (`docker compose down -v`). **Solo fuente
+real**, sin generador sintético. Bronze 960 s, Silver 840 s y Gold 660 s,
+arrancados escalonados para que los tres terminen a la vez.
+
+### Ingesta
+
+| Métrica | Valor |
+|---|---|
+| Filas en Bronze | 26.263 en 960 s |
+| Ritmo medio | **27,4 ev/s** |
+| Reparto por partición | 9.670 / 8.522 / 8.071 |
+| **Duplicados** | **0** |
+| **Huecos** | **0** |
+| Instantáneas en Silver | 85 (un micro-lote cada 10 s) |
+
+Los 27,4 ev/s son el caudal de la fuente en esa franja, no un techo del
+pipeline: en la fase 0 la misma fuente daba 37,4 ev/s a otra hora. La diferencia
+entre franjas horarias es un dato de la fuente, no del sistema.
+
+Verificado con `docker compose run --rm verifica`. Veredicto: correcto.
+
+### Latencia extremo a extremo, en régimen estacionario
+
+De `meta.dt` a fila escrita en Silver, últimos 15 minutos, 24.661 filas.
+
+| Motor | mínimo | p50 | p95 | p99 | máximo |
+|---|---|---|---|---|---|
+| Spark | 4,41 s | **15,50 s** | 40,08 s | 72,18 s | 80,56 s |
+| DuckDB | 4,41 s | **15,50 s** | 40,16 s | 72,17 s | 80,56 s |
+
+El p50 encaja con el suelo teórico: dos disparadores de 10 s encadenados. Las
+diferencias de p95 y p99 entre motores son de **algoritmo, no de datos**: Spark
+usa `percentile_approx` y DuckDB `quantile_cont`, que es exacto.
+
+### Volumen en disco
+
+| Ruta | Tamaño |
+|---|---|
+| `warehouse/bronce` | 15 MB |
+| `warehouse/plata` | 9,1 MB |
+| `warehouse/oro` | 6,3 MB |
+| **Datos, total** | **30,4 MB** |
+| `warehouse/_checkpoints` | **373 MB** |
+
+**Los puntos de control ocupan doce veces más que los datos.** Spark conserva
+100 versiones del estado por consulta (`spark.sql.streaming.minBatchesToRetain`)
+y hay cinco consultas con estado. Es el mismo hallazgo de la fase 3, agravado
+por una ejecución más larga: 180 MB entonces, 373 MB ahora. Hay que bajar ese
+valor antes de la fase 6, o S3 acabará costando por basura.
+
+### Recursos en local
+
+Con los tres jobs corriendo a la vez, en Windows 11 con 16 núcleos y 15,6 GB
+para Docker:
+
+| Contenedor | Memoria |
+|---|---|
+| MinIO | 948 MB |
+| Redpanda | 308 MB |
+| Consola de Redpanda | 53 MB |
+| Productor | 16 MB |
+
+Los tres jobs de Spark corren con `--driver-memory 2g` cada uno.
+
+### Consumo desde otro motor
+
+Las cinco tablas leídas por **DuckDB 1.5.5**, que no participó en la escritura y
+no usa el catálogo: abre cada tabla por su ruta y sigue el `version-hint.text`.
+
+Recuentos idénticos a los de Spark: 26.263 / 25.799 / 1.974 / 28 / 127.
+
+P2 sobre 14 ventanas de un minuto: bots entre **34,9 % y 46,8 %**, media 42,0 %,
+desviación 3,1. Coincide con el 41,1 % de la fase 0 y contrasta con el 30,5 % de
+otra franja en la fase 3.

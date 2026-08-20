@@ -279,3 +279,32 @@ me cuesta.
   cuesta unos 11 $ al mes se use o no.
 - **Cuesta**: nada, los dos primeros presupuestos de una cuenta son gratis. Y
   hay que asumir su límite: **avisa, no impide**. No sustituye al destroy.
+
+## D23 — DuckDB como motor de consumo, no Trino
+
+- **Decidí**: DuckDB 1.5.5 en un contenedor propio (`Dockerfile.duckdb`) para
+  leer las tablas Iceberg de la fase 4.
+- **Alternativas**: Trino, que es lo más parecido a Athena; o quedarse solo con
+  Spark, que ya responde las tres preguntas.
+- **Por qué**: el catálogo local es de ficheros, y **Trino no soporta ese tipo
+  de catálogo**: habría que añadir un Hive Metastore o un catálogo JDBC, una
+  pieza que no existe en el lado de AWS —allí es Glue— y que por tanto rompería
+  la simetría entre entornos por una necesidad del motor de consulta. DuckDB
+  abre la tabla por su ruta y sigue el `version-hint.text` sin catálogo ninguno.
+- **Cuesta**: SQL menos completo que el de Trino, y DuckDB no tiene equivalente
+  en el despliegue de AWS: allí el consumo es Athena. La equivalencia es de
+  papel —motor externo que lee la tabla—, no de producto.
+
+## D24 — El consumo se ejecuta desde otro motor a propósito
+
+- **Decidí**: mantener `src/jobs/consultas.py` (Spark) y añadir
+  `src/consumo_duckdb.py` (DuckDB) respondiendo lo mismo, en vez de sustituir
+  uno por otro.
+- **Alternativas**: dejar solo el de Spark; dejar solo el de DuckDB.
+- **Por qué**: por separado, cada script es una consulta más. Juntos son una
+  prueba: los mismos números salidos de dos motores que no comparten catálogo
+  demuestran que en Iceberg la tabla es el contrato y el escritor no es dueño
+  de los datos. Ese es el argumento entero de elegir un formato de tabla
+  abierto, y sin la pareja no se ve.
+- **Cuesta**: duplicar cinco consultas en dos dialectos de SQL, que hay que
+  mantener a la par. Es duplicación deliberada, no descuido.

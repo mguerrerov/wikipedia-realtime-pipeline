@@ -1,0 +1,2 @@
+# Version exacta. Prohibido rango abierto: ver docs/versiones.md.
+duckdb==1.5.5

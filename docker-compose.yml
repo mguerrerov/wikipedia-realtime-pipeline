@@ -214,6 +214,25 @@ services:
       --driver-memory 2g
       /app/src/jobs/analiza_tardios.py
 
+  # Consumo de la fase 4: las mismas tablas, leidas por DuckDB en vez de Spark.
+  #   docker compose run --rm consumo
+  consumo:
+    build:
+      context: .
+      dockerfile: Dockerfile.duckdb
+    image: pipeline-duckdb:1.5.5
+    profiles: ["jobs"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      CATALOGO: hadoop
+      S3_ENDPOINT: http://minio:9000
+      ALMACEN: s3a://${BUCKET:-almacen}/warehouse
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    command: ["python", "-m", "src.consumo_duckdb"]
+
   # Comprueba que Bronze no perdio ni duplico. Se lanza a mano:
   #   docker compose run --rm verifica
   verifica:
