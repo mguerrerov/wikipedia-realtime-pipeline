@@ -52,7 +52,7 @@ services:
     restart: "no"
 
   consola:
-    image: redpandadata/console:v3.10.0
+    image: redpandadata/console:v2.8.16
     container_name: consola-redpanda
     depends_on:
       redpanda:

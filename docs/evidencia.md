@@ -144,17 +144,29 @@ vista sin explicar nada.
 
 ### Captura 4 — El job trabajando
 
-En la terminal:
+**No la saques del log.** El job llama a `setLogLevel("WARN")` nada más
+arrancar, así que después de las dos primeras líneas nuestras —`Leyendo con
+formato kafka` y `Job en marcha`— el log se queda mudo hasta el final. No hay
+una línea por lote que capturar: eso solo aparece al terminar, como
+`Ultimo lote: N filas, M filas/s`.
 
-```powershell
-docker logs -f job-bronce
-```
+Lo que sí se mueve son las instantáneas de Iceberg, una por micro-lote:
 
-Verás mucho texto pasar. Espera a que aparezca una línea de las que informan de
-un bloque procesado, con su número de filas.
+1. Abre http://localhost:9001 y entra con `minioadmin` / `minioadmin`
+2. **Object Browser** → `almacen` → `warehouse` → `bronce` → `cambios` →
+   `metadata`
+3. Refresca cada 10-15 segundos
 
-**La captura buena** es la que pilla esa línea. Sal con `Ctrl+C` (eso corta el
-seguimiento del log, **no** el job).
+Van apareciendo ficheros `snap-....avro`, uno por cada bloque confirmado.
+
+**La captura buena** es esa lista con las marcas de tiempo seguidas, separadas
+unos 10 segundos entre sí: es el disparador del job, visible.
+
+*(Medido en una ejecución real: 68 instantáneas y 71 veinticinco segundos
+después.)*
+
+Si prefieres una captura de terminal, espera a que el job agote su duración y
+saca la línea final con el recuento. Llega al final, no durante.
 
 ### Captura 5 — Las tablas, ya en el almacén
 
@@ -269,7 +281,7 @@ algo.
 |---|---|---|---|
 | 1 | 0:00–0:10 | El diagrama de arquitectura, quieto | «Wikimedia → Kafka → Spark → Iceberg» |
 | 2 | 0:10–0:25 | Consola de Redpanda, el contador subiendo **en vivo** | «~37 eventos/s de la Wikipedia real» |
-| 3 | 0:25–0:40 | Logs de Bronze, dos o tres bloques seguidos | «Structured Streaming, con punto de control» |
+| 3 | 0:25–0:40 | MinIO en `bronce/cambios/metadata`, refrescando: aparecen instantáneas | «Un micro-lote cada 10 s, con punto de control» |
 | 4 | 0:40–0:50 | MinIO, entrando de `warehouse` a `oro` | «Tres capas en tablas Iceberg» |
 | 5 | 0:50–1:05 | Salida de `verifica`, con los ceros en pantalla | «Reinicio a mitad: 0 perdidos, 0 duplicados» |
 | 6 | 1:05–1:20 | Salida de `consumo`, hasta P2 | «Mismas tablas, otro motor: DuckDB» |
